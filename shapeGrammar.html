@@ -1,0 +1,246 @@
+<!--14/11/2017-->
+<!--KRZYSZTOF KRZYŻEK, shape grammar-->
+<html>
+<head>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+</head>
+<body>
+<script>
+//GLOBAL ARRAYS FOR STORING STRUCTURE INFO:
+//array for storing formatted triangle coordinates (compatible with polygon attr format)
+allPoints=[];
+//array for storing numerical triangle coordinates (top points coordinates)
+allPointsNumb=[];
+
+//arrays with rectangle/triangle markers coordinates
+coordinatesR=[];
+coordinatesT=[];
+
+//array for storing rectangles top point coordinates - attr(x,y)
+var topPoint=[];
+//////////////////////
+
+var canvas = d3.select("body")
+   .append("svg")
+   .attr("height", "100%")
+   .attr("width", "100%");
+
+//MAIN RECTANGLE VALUES
+var dimen = 70; //main dimension of shapes
+var rx1 = 750;
+var ry1 = 350;
+drawRectangle(rx1, ry1);
+//////////////////////
+
+//MARKERS SETUP ON TRIANGLES FOR CREATING RECTANGLES
+function markersSetupR (coordinatesMatrix, side) {
+	
+	coordinatesR.push({x:coordinatesMatrix[0], y:coordinatesMatrix[1], side:coordinatesMatrix[2]});	
+		
+	var markers = canvas.selectAll("circle").data(coordinatesR);
+
+	//update
+	markers
+	   	.attr("cx", function(d) { return d.x })
+		.attr("cy", function(d) { return d.y })
+	   
+	//enter
+	markers.enter().append("circle")
+		.attr("cx", function(d) { return d.x })
+		.attr("cy", function(d) { return d.y })
+		.attr("r", "4")
+		.attr("fill", "black")
+		.on("click", function(d) {drawTriangle(generateTrianglePoints(d.x, d.y, d.side))
+	});
+	
+	//exit
+	markers.exit().remove();
+		
+}
+
+//MARKERS SETUP ON RECTANGLES FOR CREATING TRIANGLES
+function markersSetupT (coordinatesMatrix, side, side2) {
+	
+	coordinatesT.push({x:coordinatesMatrix[0], y:coordinatesMatrix[1], side:coordinatesMatrix[2], side2:coordinatesMatrix[3]});	
+		
+	var markers = canvas.selectAll("ellipse").data(coordinatesT);
+
+	//update
+	markers
+	   	.attr("cx", function(d) { return d.x })
+		.attr("cy", function(d) { return d.y })
+	   
+	//enter
+	markers.enter().append("ellipse")
+		.attr("cx", function(d) { return d.x })
+		.attr("cy", function(d) { return d.y })
+		.attr("rx", "4")
+		.attr("ry", "4")
+		.attr("fill", "black")
+		.on("click", function(d) {drawRectangle(d.x, d.y, side, side2)
+	});
+	
+	//exit
+	markers.exit().remove();
+		
+} 
+	
+//GENERATING POINTS COORDINATES FOR CREATING TRIANGLES - top coordinates
+function generateTrianglePoints(x, y, side) {
+//var color = ["white"];
+//var points = "450,300 500,250 550,300";
+//var stroke = "black";
+//var triangleValues = [{color:color[0], pointsCor:points, strokeCol:stroke}];
+
+//TRIANGLE POINTS
+/*	var points = [
+			[x, (y+dimen)],
+			[(x-(dimen*Math.sqrt(3))/2), (y+dimen/2)],
+			[x, y]
+		];	
+	*/
+	
+	 
+	//point coordinates for triangle, when created on left side of rectangle
+	if (side == 0) {
+		y=y-dimen/2;
+		var pointsLeft = [
+			[x, (y+dimen)],
+			[(x-(dimen*Math.sqrt(3))/2), (y+dimen/2)],
+			[x, y]
+		];	
+		points = pointsLeft;
+	//point coordinates for triangle, when created on top side of rectangle
+	} else if (side == 1) {
+		x=x-dimen/2;
+		var pointsTop = [
+			[x, y],
+			[(x+dimen/2), (y-(dimen*Math.sqrt(3))/2)],
+			[(x+dimen), y]
+		];
+		points = pointsTop;
+	//point coordinates for triangle, when created on right side of rectangle
+	} else if (side == 2) {
+		x=x-dimen;
+		y=y-dimen/2;
+		var pointsRight = [
+			[(x+dimen), y],
+			[(x+dimen + (dimen*Math.sqrt(3)/2)), (y+dimen/2)],
+			[(x+dimen), (y+dimen)]
+		];
+		points = pointsRight;
+	//point coordinates for triangle, when created on bottom side of rectangle
+	} else if (side == 3) {
+		x=x-dimen/2;
+		y=y-dimen;
+		var pointsBottom = [
+			[(x+dimen), (y+dimen)],
+			[(x+dimen/2), (y+dimen+(dimen*Math.sqrt(3))/2)],
+			[x, (y+dimen)]
+		];
+		points = pointsBottom;
+	}
+	
+		//var pointsBottom = [
+			//[(x+dimen), (y+dimen)],
+			//[(x+dimen/2), (y+dimen+(dimen*Math.sqrt(3))/2)],
+			//[x, (y+dimen)]];
+			
+	
+	//creating arrays with all points for created triangles
+	allPointsNumb.push(points);	
+	
+	pointsFormatted = points.join(" ");
+	allPoints.push({p:pointsFormatted});
+	
+	//Markers for drawing rectangle on left/right side of triangle
+	markersCoorL = [(points[0][0]+points[1][0])/2, (points[0][1]+points[1][1])/2];
+	markersCoorR = [(points[1][0]+points[2][0])/2, (points[1][1]+points[2][1])/2];
+	
+	//creating markers on left/right side of triangle
+	markersSetupT(markersCoorL, 0, side);
+	markersSetupT(markersCoorR, 1, side);
+	
+	//returning array with all points for triangles - FORMATTED! for polygon attr
+	return allPoints;
+}
+
+//DRAWING TRIANGLES
+function drawTriangle(allPoints) {
+
+//DRAWING TRIANGLE
+	var triangle = canvas.selectAll("polygon").data(allPoints);
+	
+	//update
+	triangle
+	   .attr("points", function(d) { return d.p })
+	   
+	//enter
+	triangle.enter().append("polygon")
+	   .style("fill", "white")
+	   .style("stroke", "black")
+	   .attr("class", "triangle")
+	   .attr("points", function(d) { return d.p })
+	   .on("click", function(){d3.select(this).style("fill", "ForestGreen")});
+	
+	//exit
+	triangle.exit().remove();
+
+}
+
+//DRAWING RECTANGLES
+function drawRectangle(x, y, side, side2) {
+	//CORRECTION OF TOP POINT COORDINATES (x,y) FOR MARKERS ON DIFFERENT SIDES OF SHAPES (rectangle - side2, triangle - side)
+	if ((side==0 && side2==0) || (side==1 && side2==3)) {
+		x-=dimen;
+	} else if ((side==0 && side2==1) || (side==1 && side2==0)) {
+		x-=dimen;
+		y-=dimen;
+	} else if ((side==0 && side2==2) || (side==1 && side2==1)) {
+		y-=dimen;
+	} else if (side==0 && side2==3) {
+	} else if (side==1 && side2==2) {
+	}
+	
+	//ARRAY WITH VALUES FOR RECTANGLES - attr (x, y)
+	topPoint.push({xCor:x, yCor:y});
+	
+	var rectangle = canvas.selectAll("rect").data(topPoint);
+
+	//update
+	rectangle
+	   	.attr("x", function(d) { return d.xCor })
+		.attr("y", function(d) { return d.yCor })
+	   
+	//enter
+	rectangle.enter().append("rect")
+		.attr("x", function(d) { return d.xCor })
+		.attr("y", function(d) { return d.yCor })
+		.attr("width", dimen)
+		.attr("height", dimen)
+		.attr("fill", "white")
+		.attr("stroke", "black")
+		.attr("class", "rectangle")
+		.on("click", function(){d3.select(this).style("fill", "grey")});
+	
+	//exit
+	rectangle.exit().remove();
+	
+	//coordinates of markers on each side of rectangle
+	var markersCorL = [x, y+dimen/2, 0];
+	var markersCorT = [x+dimen/2, y, 1];
+	var markersCorR = [x+dimen, y+dimen/2, 2];
+	var markersCorB = [x+dimen/2, y+dimen, 3];
+	
+	//creating markers
+	markersSetupR(markersCorL);
+	markersSetupR(markersCorT);
+	markersSetupR(markersCorR);
+	markersSetupR(markersCorB);
+	
+}
+
+</script>
+
+</body>
+</html>
