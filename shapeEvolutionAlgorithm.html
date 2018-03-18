@@ -1,0 +1,1249 @@
+<!--14/11/2017-->
+<!--KRZYSZTOF KRZYŻEK, shape evolution algorithm-->
+<html style="width:100%;height:100%;">
+<style>
+p.restrict {
+    width: 250px;
+}
+.button {
+    background-color: #4CAF50;
+	color: white;
+}
+.buttonRed {
+    background-color: #D50000;
+	color: white;
+}
+.button3 {
+    background-color: #1A237E;
+	color: white;
+}
+</style>
+<head>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.4/lodash.js"></script>
+</head>
+<body style="width:100%;height:100%;margin:15;">
+<!--<p class="restrict" id="counterSave">save counter = 0</p>-->
+<!--<p class="restrict" id="counterRead">read counter = 0</p>-->
+
+<!--<button type="button" id="startReload" onclick="startReload()">START RELOAD</button>
+<button type="button" id="stopReload" onclick="stopReload()">STOP RELOAD</button>
+<button onclick="readTimeout()">set timeout</button>
+<label id="timeousMs" style="border: thin red solid; margin-top: 10px;"></label>
+<br><br>
+<button class="button" type="button" id="generateRandomShapeButton" onclick="generateRandomShapeFinal();">GENERATE RANDOM SHAPE</button>
+<label id="numbOfIterations" style="border: green solid; margin-top: 10px;">numb of iterations = null</label>
+<br>
+<button class="button" type="button" id="shapeEvaluationButton" onclick="evaluateShape()">EVALUATE SHAPE</button>
+<label id="evaluation" style="border: green solid; margin-top: 10px;">EVALUATION = N/A</label>
+<br><br>-->
+<label id="evolutionTitle" style="border: black solid; margin-top: 10px;">PROJECT PART 3 - EVOLUTION ALGORITHM</label>
+<br><br>
+<label id="description" style="margin-top: 20px;">Instrukcja:</label>
+<br>
+<label id="description" style="margin-top: 20px;">W szarych oknach pojawiaja sie grupy ksztaltow (10 ksztaltow). W turkusowych oknach pojawiaja sie ksztalty powstale w wyniku krzyzowania (3 ksztalty).
+Informacje na temat ocen ksztaltow/krzyzowania mozna zobaczyc w konsoli przegladarki. Na poczatku nalezy kliknac przycisk 'GENERATE RANDOM SHAPES', co spowoduje wylosowanie poczatkowej grupy ksztaltow (10 ksztaltow).
+Nastepnie klikamy na zmiane przyciski 'GENERATE AND DRAW CROSSED SHAPES' (operacja krzyzowania), a pozniej 'GENERATE AND DRAW NEXT ITERATION' (generowanie kolejnej grupy 10 ksztaltow skladajacej sie z 3 ksztaltow powstalych
+w wyniku krzyzowania i 7 najlepszych ksztaltow z poprzedniej grupy ksztaltow). Mutacja wystepuje losowo na etapie krzyzowania w postaci zmiany koloru jednego z elementow ksztaltu.</label>
+<br>
+<label id="description" style="margin-top: 20px;">* Przycisk 'set random max' sluzy jedynie do okreslenia maksymalnej liczby elementow, z ktorych moga skladac sie losowane ksztalty.</label>
+<br>
+<br><br>
+<button onclick="readFromUser()">set random max</button>
+<label id="maxNumbOfElements" style="border: thin red solid; margin-top: 10px;"></label>
+<br>
+<!--<button type="button" id="buttonSave" onclick="saveToLocalStorage(allPoints, topPoint, coordinatesT, coordinatesR)">SAVE SHAPE ARRAYs</button>
+<button type="button" id="buttonRead" onclick="printToConsoleLocalStorage()">READ SHAPE ARRAYs</button>
+<button type="button" id="clearButton" onclick="clearLocalStorage()">CLEAR LOCAL STORAGE</button>
+<br><br>-->
+<button class="button3" type="button" id="generateRandomShapesButton" onclick="generateRandomShapes();">GENERATE RANDOM SHAPES</button>
+<br>
+<button class="buttonRed" type="button" id="reloadButton" onclick="refreshPage()">CLEAR</button>
+<br><br>
+<button class="button3" type="button" id="generateCrossedShapesButton" onclick="drawCrossedShapes();">GENERATE AND DRAW CROSSED SHAPES</button>
+<br>
+<button class="button3" type="button" id="nextIteration" onclick="crossPlus7Parents();">GENERATE AND DRAW NEXT ITERATION</button>
+<br><br>
+<!--<p id="ewaluacja">ewaluacja = 0</p>-->
+
+<script>
+//check timeout
+var timeoutMs;
+if (JSON.parse(localStorage.getItem("timeoutMs"))) {
+	timeoutMs = JSON.parse(localStorage.getItem("timeoutMs"));
+} else {timeoutMs = 1000;}
+
+//check max numb of elements for random shape generator
+var maxNumbOfElements;
+if (JSON.parse(localStorage.getItem("randomMax"))) {
+	maxNumbOfElements = JSON.parse(localStorage.getItem("randomMax"));
+} else {maxNumbOfElements = 20;}
+
+//document.getElementById("generateRandomShapeButton").bgcolor="#FF1744";
+//document.getElementById("shapeEvaluationButton").bgcolor="#ffffff";
+document.getElementById("maxNumbOfElements").innerHTML = "max numb of elements = " + maxNumbOfElements;
+//document.getElementById("timeousMs").innerHTML = "Timeout = "+ timeoutMs + "ms";
+
+//GLOBAL ARRAYS FOR STORING STRUCTURE INFO:
+//array for storing formatted triangle coordinates (compatible with polygon attr format)
+allPoints=[];
+allPointsCoor=[];
+//NOW LOCAL variable for LATEST CREATED triangle coordinates (x,y,z)
+//var allPointsNumb;
+
+//arrays with rectangle/triangle markers coordinates
+coordinatesR=[];
+coordinatesT=[];
+
+//array for storing rectangles top point coordinates - attr(x,y)
+var topPoint=[];
+//////////////////////
+
+var canvas = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black")
+
+
+var canvas1 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black")
+   
+var canvas2 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black") 
+   
+var canvas3 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black")
+   
+   var canvas4 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black")
+   
+var canvas5 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black")
+   
+var canvas6 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black")
+   
+var canvas7 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black")
+   
+   var canvas8 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black")
+   
+var canvas9 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black")
+   
+var canvas10 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#9E9E9E")
+   .style("border", "2px solid black")
+
+   
+   	var canvas01 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#A7FFEB")
+   .style("border", "2px solid black") 
+   
+	var canvas02 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#A7FFEB") 
+   .style("border", "2px solid black")  
+   
+    var canvas03 = d3.select("body")
+   .append("svg")
+   .attr("height", "50%")
+   .attr("width", "50%")
+   .attr("stroke", "#000000")
+   .attr("stroke-width", "3")
+   .style("background", "#A7FFEB")   
+   .style("border", "2px solid black")
+   
+//MAIN RECTANGLE VALUES
+var dimen = 30; //main dimension of shapes
+var rx1 = 220;
+var ry1 = 200;
+drawRectangle(rx1, ry1);
+//////////////////////
+
+//buttons for read/save shape coordinates from/to local storage and clear local storage
+//document.getElementById("buttonSave").onclick = function() {saveToLocalStorage(allPoints, topPoint, coordinatesT, coordinatesR)};
+//document.getElementById("buttonRead").onclick = function() {printToConsoleLocalStorage()};
+//document.getElementById("clearButton").onclick = function() {clearLocalStorage()};
+
+//MARKERS SETUP ON RECTANGLES
+
+//read from user max numb of elements -> FOR RANDOM
+function readFromUser() {
+    var maxElements = prompt("Enter max numb of elements", "DEFAULT = 10. Integers only (<0)");
+    if (maxElements != null) {
+		maxNumbOfElements = maxElements;
+		localStorage.setItem("randomMax", JSON.stringify(maxNumbOfElements));
+		document.getElementById("maxNumbOfElements").innerHTML = "max numb of elements = "+ maxNumbOfElements;
+    }
+}
+//read from user timeout for page reloading
+function readTimeout() {
+    var timeout = prompt("Enter timeout", "DEFAULT = 1000ms. Integers only (<0)");
+    if (timeout != null) {
+		timeoutMs = timeout;
+		localStorage.setItem("timeoutMs", JSON.stringify(timeoutMs));
+		document.getElementById("timeousMs").innerHTML = "Timeout = "+ timeoutMs + "ms";
+    }
+}
+
+function markersSetupR (coordinatesMatrix, side) {
+	
+	coordinatesR.push({x:coordinatesMatrix[0], y:coordinatesMatrix[1], side:coordinatesMatrix[2]});	
+
+	var markers = canvas.selectAll("circle").data(coordinatesR);
+/*
+	//update
+	markers
+	   	.attr("cx", function(d) { return d.x })
+		.attr("cy", function(d) { return d.y })
+	   
+	//enter
+	markers.enter().append("circle")
+		.attr("cx", function(d) { return d.x })
+		.attr("cy", function(d) { return d.y })
+		.attr("r", "4")
+		.attr("fill", "black")
+		.on("click", function(d) {
+			drawTriangle(generateTrianglePoints(d.x, d.y, d.side, "transparent"));
+			//d3.select(this).remove();
+			//coordinatesR.splice(coordinatesR.indexOf({x:d.x, y:d.y, side:d.side}));
+	});
+	
+	//exit
+	markers.exit().remove();
+*/		
+}
+
+//MARKERS SETUP ON TRIANGLES
+function markersSetupT (coordinatesMatrix, side, side2) {
+	
+	coordinatesT.push({x:coordinatesMatrix[0], y:coordinatesMatrix[1], side, side2});	
+		
+	var markers = canvas.selectAll("ellipse").data(coordinatesT);
+/*
+	//update
+	markers
+	   	.attr("cx", function(d) { return d.x })
+		.attr("cy", function(d) { return d.y });
+	   
+	//enter
+	markers.enter().append("ellipse")
+		.attr("cx", function(d) { return d.x })
+		.attr("cy", function(d) { return d.y })
+		.attr("rx", "4")
+		.attr("ry", "4")
+		.attr("fill", "black")
+		.on("click", function(d) {
+			drawRectangle(d.x, d.y, d.side, d.side2);
+			//d3.select(this).remove();
+			//coordinatesT.splice(coordinatesT.indexOf({x:d.x, y:d.y, side:d.side, side2:d.side2}),1);
+	});
+	
+	//exit
+	markers.exit().remove();
+*/		
+} 
+	
+//GENERATING POINTS COORDINATES FOR CREATING TRIANGLES - top coordinates
+function generateTrianglePoints(x, y, side, color) {
+//var color = ["white"];
+//var points = "450,300 500,250 550,300";
+//var stroke = "black";
+//var triangleValues = [{color:color[0], pointsCor:points, strokeCol:stroke}];
+
+//TRIANGLE POINTS
+/*	var points = [
+			[x, (y+dimen)],
+			[(x-(dimen*Math.sqrt(3))/2), (y+dimen/2)],
+			[x, y]
+		];	
+	*/
+	
+	 
+	//point coordinates for triangle, when created on left side of rectangle
+	if (side == 0) {
+		y=y-dimen/2;
+		var pointsLeft = [
+			[x, (y+dimen)],
+			[(x-(dimen*Math.sqrt(3))/2), (y+dimen/2)],
+			[x, y]
+		];	
+		points = pointsLeft;
+	//point coordinates for triangle, when created on top side of rectangle
+	} else if (side == 1) {
+		x=x-dimen/2;
+		var pointsTop = [
+			[x, y],
+			[(x+dimen/2), (y-(dimen*Math.sqrt(3))/2)],
+			[(x+dimen), y]
+		];
+		points = pointsTop;
+	//point coordinates for triangle, when created on right side of rectangle
+	} else if (side == 2) {
+		x=x-dimen;
+		y=y-dimen/2;
+		var pointsRight = [
+			[(x+dimen), y],
+			[(x+dimen + (dimen*Math.sqrt(3)/2)), (y+dimen/2)],
+			[(x+dimen), (y+dimen)]
+		];
+		points = pointsRight;
+	//point coordinates for triangle, when created on bottom side of rectangle
+	} else if (side == 3) {
+		x=x-dimen/2;
+		y=y-dimen;
+		var pointsBottom = [
+			[(x+dimen), (y+dimen)],
+			[(x+dimen/2), (y+dimen+(dimen*Math.sqrt(3))/2)],
+			[x, (y+dimen)]
+		];
+		points = pointsBottom;
+	}
+	
+		//var pointsBottom = [
+			//[(x+dimen), (y+dimen)],
+			//[(x+dimen/2), (y+dimen+(dimen*Math.sqrt(3))/2)],
+			//[x, (y+dimen)]];
+			
+	//creating arrays with all points for SINGLE created triangle
+	var allPointsNumb={p:points.join(" "), color:color};
+	var check = checkIfDuplicateT(allPointsNumb, allPoints);
+	
+	//Check if triangle already exists, if not push it to the allPoints matrix and setup markers.
+	if (!check) {
+	
+		//pointsFormatted = points.join(" ");
+		allPoints.push(allPointsNumb);
+		allPointsCoor.push({p1:points[0], p2:points[1], p3:points[2]});
+		
+		//Markers for drawing rectangle on left/right side of triangle
+		markersCoorL = [(points[0][0]+points[1][0])/2, (points[0][1]+points[1][1])/2];
+		markersCoorR = [(points[1][0]+points[2][0])/2, (points[1][1]+points[2][1])/2];
+		
+		//creating markers on left/right side of triangle
+		markersSetupT(markersCoorL, 0, side);
+		markersSetupT(markersCoorR, 1, side);
+		
+	}
+	//returning array with all points for triangles - FORMATTED! for polygon attr
+	return allPoints;
+}
+
+//Search for object in array TRIANGLES
+function checkIfDuplicateT(key, myArray){
+	var returnValue = false;
+    for (var i=0; i < myArray.length; i++) {
+        if (myArray[i].p === key.p) {
+            returnValue =  true;
+			break;
+        }
+    }
+	return returnValue;
+}
+
+//DRAWING TRIANGLES
+function drawTriangle(allPoints) {
+
+//DRAWING TRIANGLE
+	var triangle = canvas.selectAll("polygon").data(allPoints);
+	
+	//update
+	triangle
+	   .attr("points", function(d) { return d.p })
+	   
+	//enter
+	triangle.enter().append("polygon")
+	   .style("fill", "white")
+	   .style("stroke", "black")
+	   .style("stroke-width", "2")
+	   .attr("class", "triangle")
+	   .attr("points", function(d) { return d.p })
+	   .style("fill", function(d) { return d.color })
+	   //.on("click", function(){d3.select(this).style("fill", "yellow")})
+	   ;
+	
+	//exit
+	triangle.exit().remove();
+
+}
+
+//Search for object in array RECTANGLE
+function checkIfDuplicateR(key, myArray){
+	var returnValue = false;
+    for (var i=0; i < myArray.length; i++) {
+        if (myArray[i].xCor === key.xCor && myArray[i].yCor === key.yCor) {
+            returnValue =  true;
+			break;
+        }
+    }
+	return returnValue;
+}
+
+//DRAWING RECTANGLES
+function drawRectangle(x, y, side, side2, color) {
+	//CORRECTION OF TOP POINT COORDINATES (x,y) FOR MARKERS ON DIFFERENT SIDES OF SHAPES (rectangle - side2, triangle - side)
+	if ((side==0 && side2==0) || (side==1 && side2==3)) {
+		x-=dimen;
+	} else if ((side==0 && side2==1) || (side==1 && side2==0)) {
+		x-=dimen;
+		y-=dimen;
+	} else if ((side==0 && side2==2) || (side==1 && side2==1)) {
+		y-=dimen;
+	} else if (side==0 && side2==3) {
+	} else if (side==1 && side2==2) {
+	}
+	
+	//Check if rectangle already exists, if not push it to the topPoint matrix
+	var singleRectangleObj = {xCor:x, yCor:y, color:color};
+	var check = checkIfDuplicateR(singleRectangleObj, topPoint);
+	if (!check) {
+		//ARRAY WITH VALUES FOR RECTANGLES - attr (x, y, color)
+		topPoint.push(singleRectangleObj);
+	}
+
+	var rectangle = canvas.selectAll("rect").data(topPoint);
+
+	//update
+	rectangle
+	   	.attr("x", function(d) { return d.xCor })
+		.attr("y", function(d) { return d.yCor })
+	   
+	//enter
+	rectangle.enter().append("rect")
+		.attr("x", function(d) { return d.xCor })
+		.attr("y", function(d) { return d.yCor })
+		.attr("width", dimen)
+		.attr("height", dimen)
+		.attr("fill", "white")
+		.attr("stroke", "black")
+		.style("stroke-width", "2")
+		.attr("class", "rectangle")
+		.style("fill", color)
+		//.on("click", function(){d3.select(this).style("fill", "blue")})
+		;
+	
+	//exit
+	rectangle.exit().remove();
+	
+	//coordinates of markers on each side of rectangle
+	var markersCorL = [x, y+dimen/2, 0];
+	var markersCorT = [x+dimen/2, y, 1];
+	var markersCorR = [x+dimen, y+dimen/2, 2];
+	var markersCorB = [x+dimen/2, y+dimen, 3];
+	
+	//creating markers
+	markersSetupR(markersCorL);
+	markersSetupR(markersCorT);
+	markersSetupR(markersCorR);
+	markersSetupR(markersCorB);
+	
+}
+
+//var counterSave = 0;
+//Saving existing shape coordinates to local storage
+function saveToLocalStorage(trianglePoints, rectanglePoints, coordinatesOnTriangle, coordinatesOnRectangle) {
+
+
+	var trianglePointsToSave = trianglePoints;
+	var rectanglePointsToSave = rectanglePoints;
+	
+	var coordinatesTToSave = coordinatesOnTriangle;
+	var coordinatesRToSave = coordinatesOnRectangle;
+	
+	localStorage.setItem("trianglePoints", JSON.stringify(trianglePointsToSave));
+	localStorage.setItem("rectanglePoints", JSON.stringify(rectanglePointsToSave));
+	localStorage.setItem("coordinatesOnTriangle", JSON.stringify(coordinatesTToSave));
+	localStorage.setItem("coordinatesOnRectangle", JSON.stringify(coordinatesRToSave));
+	
+	//counterSave+=1;
+	//document.getElementById("counterSave").innerHTML = "save counter = "+counterSave;
+
+}
+
+//var counterRead = 0;
+//Reading existing shape coordinates from local storage
+function printToConsoleLocalStorage() {
+
+	var trianglePointstoRead = JSON.parse(localStorage.getItem("trianglePoints"));
+	var rectanglePointstoRead = JSON.parse(localStorage.getItem("rectanglePoints"));
+	
+	var coordinatesTtoRead = JSON.parse(localStorage.getItem("coordinatesOnTriangle"));
+	var coordinatesRtoRead = JSON.parse(localStorage.getItem("coordinatesOnRectangle"));
+	
+	console.log("TRIANGLE POINTS");
+	console.log("triangleArray.length="+trianglePointstoRead.length);
+	console.log(trianglePointstoRead);
+	
+	console.log("RECTANGLE POINTS");
+	console.log("rectangleArray.length="+rectanglePointstoRead.length);
+	console.log(rectanglePointstoRead);
+	
+	console.log("MARKERS ON TRIANGLES");
+	console.log(coordinatesTtoRead);
+	
+	console.log("MARKERS ON RECTANGLES");
+	console.log(coordinatesRtoRead);
+
+/*	
+	trojkaty=0;
+	for (i = 0; i < trianglePointstoRead.length; i++) {
+		for (j = 0; j < allPoints.length; i++) {
+			if (trianglePointstoRead[i] == allPoints[j]) {
+				trojkaty+=1;
+			}
+		}
+	}
+	
+		kwadraty=0;
+		for (i = 0; i < rectanglePointstoRead.length; i++) {
+		for (j = 0; j < topPoint.length; i++) {
+			if (rectanglePointstoRead[i] == topPoint[j]) {
+				kwadraty+=1;
+			}
+		}
+	}
+	*/
+	//document.getElementById("ewaluacja").innerHTML = "kwadraty= "+kwadraty+" ,trojkaty="+trojkaty;
+	
+	//counterRead+=1;
+	//document.getElementById("counterRead").innerHTML = "read counter = "+counterRead;
+}
+
+//Clear arrays from local storage
+function clearLocalStorage() {
+	localStorage.clear();
+}
+
+/////////////////////////////RANDOM SHAPE GENERATION/////////////////////////////
+
+//Matrixes to hold random shape data
+rectangleRandMatrix = [];
+triangleRandMatrix = [];
+
+//Add single, random element to shape
+rectangleOrTriangle = [0, 1];
+ifColor = [0, 1];
+function generateRandomShapeSingle() {
+	var rectColor = "white";
+	var triangleColor = "white";
+	//var randomNumb = Math.random();
+	
+	var randMain = rectangleOrTriangle[Math.floor(Math.random() * rectangleOrTriangle.length)];
+	//console.log(randMain);
+	
+	if (randMain == 0) {
+		var randRectangle = coordinatesR[Math.floor(Math.random() * coordinatesR.length)];
+		var randColor = ifColor[Math.floor(Math.random() * ifColor.length)];
+		if (randColor) {
+			triangleColor = "red";
+		}
+		//markersSetupR (randRectangle.x, randRectangle.y, randRectangle.side);
+		drawTriangle(generateTrianglePoints(randRectangle.x, randRectangle.y, randRectangle.side, triangleColor));
+		//rectangleRandMatrix.push(randRectangle);
+	} else if (randMain == 1) {
+		var randTriangle = coordinatesT[Math.floor(Math.random() * coordinatesT.length)];
+		var randColor = ifColor[Math.floor(Math.random() * ifColor.length)];
+		if (randColor) {
+			rectColor = "blue";
+		}
+		//markersSetupT(randTriangle.x, randTriangle.y, randTriangle.side, randTriangle.side2);
+		drawRectangle(randTriangle.x, randTriangle.y, randTriangle.side, randTriangle.side2, rectColor);
+		//triangleRandMatrix.push(randTriangle);
+	}
+	
+	//var randRectangle = coordinatesR[Math.floor(Math.random() * coordinatesR.length)];
+	//document.getElementById("randomNumb").innerHTML = "random numb = "+randomNumb;
+	//console.log(rand);
+}
+
+//Generate final random shape
+function generateRandomShapeFinal() {
+	numbOfIterations = Math.floor(Math.random() * maxNumbOfElements) + 1;
+	//document.getElementById("numbOfIterations").innerHTML = "numb of iterations = "+numbOfIterations;
+	
+	rectangleSideValues = [0, 1, 2, 3];
+	randSide = rectangleSideValues[Math.floor(Math.random() * rectangleSideValues.length)];
+	if (randSide == 0) {
+		x1 = rx1;
+		y1 = ry1+(dimen/2);
+	} else if (randSide == 1) {
+		x1 = rx1+(dimen/2);
+		y1 = ry1;
+	} else if (randSide == 2) {
+		x1 = rx1+dimen;
+		y1 = ry1+(dimen/2);
+	} else if (randSide == 3) {
+		x1 = rx1+(dimen/2);
+		y1 = ry1+dimen;
+	}
+
+	var randColor = ifColor[Math.floor(Math.random() * ifColor.length)];
+	if (randColor) {
+		triangleColor = "red";
+	} else { triangleColor = "white";}
+	drawTriangle(generateTrianglePoints(x1, y1, randSide, triangleColor));
+	//markersSetupR (x1, y1, randSide);
+	//console.log(randSide);
+	
+	for (i = 1; i < numbOfIterations; i++) {
+		generateRandomShapeSingle();
+	}
+	
+
+	
+}
+
+//DONE: fix prawy trojkat - workaround = commented!,
+//DONE: fix random markery - not used
+//DONE: no duplicates for random in triangle/rectangle arrays
+
+/////////////////////////////RANDOM SHAPE EVALUATION/////////////////////////////
+//TODO: evaluation vv
+//maxValue=100
+/*
+critieria:
+1. dzielenie modulo trojkat/kwadrat (matrix size). jesli 0, to 10pkt, jesli 1 to 0 pkt
+2. jesli wszystkich elementow = 5, 10, 15, 20 ... to 10pkt. ([array1.size + array2.size] % 5), jesli brakuje:
+	1 - 8pkt
+	2 - 6 pkt
+	3 - 4 pkt
+	4 - 2 pkt
+3. kolor:
+	max 10pkt
+	percentage
+	
+SUMA = 30 => *2
+------------------	
+4. jesli symetria os x - 20pkt (osobno rect,trian)
+
+*/
+
+function calcCriteria1 (triangleArraySize, rectangleArraySize) {
+
+	if (triangleArraySize % rectangleArraySize == 0) {
+		return 10;
+	}
+	return 0;
+	}
+
+	//CHANGED CRITERIA!!! - IDEAL numb of all elements = max numb of all elements
+	function calcCriteria2 (triangleArraySize, rectangleArraySize) {
+	var numbOfElements = triangleArraySize + rectangleArraySize;
+	
+	var thresholdLvl = maxNumbOfElements*0.2;
+	
+	if (numbOfElements < thresholdLvl) {
+		return -30;
+	}
+	
+	/*
+	if (numbOfElements % 2 == 0) {
+		return 10;
+	}else {
+		return 10*(numbOfElements/maxNumbOfElements);
+	}
+
+	}else if (numbOfElements % 5 == 1) {
+		return 8;
+	}else if (numbOfElements % 5 == 2) {
+		return 6;
+	}else if (numbOfElements % 5 == 3) {
+		return 4;
+	}else if (numbOfElements % 5 == 4) {
+		return 2;
+	}
+	*/
+	return 10*(numbOfElements/maxNumbOfElements);
+}
+
+function calcCriteria3 (triangleArraySize, rectangleArraySize) {
+	var triangleColorNumb = 0;
+	var rectangleColorNumb = 0;
+	var numbOfElements = triangleArraySize + rectangleArraySize;
+	
+	for (var i=0; i < triangleArraySize; i++) {
+		if (allPoints[i].color == "red") {
+			triangleColorNumb+=1;
+		}
+	}
+	for (var j=0; j < rectangleArraySize; j++) {
+	if (topPoint[j].color == "blue") {
+		rectangleColorNumb+=1;
+		}
+	}
+	var allColorNumb = triangleColorNumb +  rectangleColorNumb;
+	var colorPercent = allColorNumb / numbOfElements;
+	/*
+	if (colorPercent >= 75) {
+		return 15;
+	}else if (colorPercent < 75 && colorPercent > 50) {
+		return 10;
+	}else if (colorPercent < 50 && colorPercent > 25) {
+		return 5;
+	}
+	*/
+	criteriaValue = (colorPercent * 10);
+	return criteriaValue;
+}
+
+
+//CHECK SYMMETRY FOR RECTANGLES
+function checkSymmetryR (rectangleArray) {
+	var Ysymmetry = (rx1 + dimen/2);
+	
+	leftSide = [];
+	rightSide = [];
+	
+	for (var i=1; i < rectangleArray.length; i++) {
+		if ((rectangleArray[i].xCor - Ysymmetry) < 0) {
+			leftSide.push(Math.abs((rectangleArray[i].xCor + dimen/2) - Ysymmetry));
+		} else if ((rectangleArray[i].xCor - Ysymmetry) > 0) {
+			rightSide.push((rectangleArray[i].xCor + dimen/2)- Ysymmetry);
+		}
+	}
+	
+	if (rightSide.length != leftSide.length) {
+		return false;
+	}
+	
+	Array.prototype.compare = function(testArr) {
+		if (this.length != testArr.length) return false;
+		for (var i = 0; i < testArr.length; i++) {
+			if (this[i].compare) { //To test values in nested arrays
+				if (!this[i].compare(testArr[i])) return false;
+			}
+			else if (this[i] !== testArr[i]) return false;
+		}
+		return true;
+	}
+	
+	if(leftSide.sort().compare(rightSide.sort())) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+//CHECK SYMMETRY FOR TRIANGLES
+function checkSymmetryT (triangleArray) {
+	var Ysymmetry = (rx1 + dimen/2);
+	
+	leftSide = [];
+	rightSide = [];
+	
+	var triangleCenter;
+	triangleCenters = [];
+	
+	if (triangleArray) {
+		return false;
+	}
+	
+	for (var i=0; i < triangleArray.length; i++) {
+		triangleCenter = (triangleArray[i].p1[0] + triangleArray[i].p2[0] + triangleArray[i].p3[0])/3;
+		if ((triangleCenter - Ysymmetry) < 0) {
+			leftSide.push(Math.round(Math.abs(triangleCenter - Ysymmetry)));
+		} else if ((triangleCenter - Ysymmetry) > 0) {
+			rightSide.push(Math.round(triangleCenter- Ysymmetry));
+		}
+	}
+
+	if (rightSide.length != leftSide.length) {
+		return false;
+	}
+	
+	Array.prototype.compare = function(testArr) {
+		if (this.length != testArr.length) return false;
+		for (var i = 0; i < testArr.length; i++) {
+			if (this[i].compare) { //To test values in nested arrays
+				if (!this[i].compare(testArr[i])) return false;
+			}
+			else if (this[i] !== testArr[i]) return false;
+		}
+		return true;
+	}
+	
+	if(leftSide.sort().compare(rightSide.sort())) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+function evaluateShape() {
+	var tArraySize = allPoints.length;
+	var rArraySize = topPoint.length;
+
+	var criteria1Val = calcCriteria1(tArraySize, rArraySize);
+	var criteria2Val = calcCriteria2(tArraySize, rArraySize);
+	var criteria3Val = calcCriteria3(tArraySize, rArraySize);
+	var symmetryValR = checkSymmetryR(topPoint);
+	var symmetryValT = checkSymmetryT(allPointsCoor);
+	
+	var evaluationRating = 0;
+	
+	if (symmetryValR) {
+		evaluationRating += 20;
+	}
+	
+		if (symmetryValT) {
+		evaluationRating += 20;
+	}
+	
+	//var temp = numbOfElements % 5;
+	evaluationRating += 2*(criteria1Val + criteria2Val + criteria3Val);
+	//document.getElementById("evaluation").innerHTML = "EVALUATION = "+evaluationRating + " || criteria1=" + criteria1Val + " || criteria2=" + criteria2Val + " || criteria3=" + criteria3Val + " || symmetryRect=" + symmetryValR + " || symmetryTrian=" + symmetryValT;
+
+	return evaluationRating;
+}
+
+var flag = 1;
+//AUTOMATE PAGE RELOADING
+function refreshPage() {
+	location.reload();
+}
+
+var flag;
+flag = JSON.parse(localStorage.getItem("reloadFlag"));	
+var timeout;
+function stopReload() {
+	clearTimeout(timeout);
+	flag = 1;
+	localStorage.setItem("reloadFlag", JSON.stringify(flag));
+	
+}
+function startReload() {
+	flag = 0;
+	localStorage.setItem("reloadFlag", JSON.stringify(flag));
+	generateRandomShapeFinal();
+	evaluateShape();
+	timeout = setTimeout(function() { window.location.reload();}, timeoutMs);
+}
+
+if (flag == 0) {
+	startReload();
+}
+
+function autoGenerateAndEvaluate () {
+generateRandomShapeFinal();
+evaluateShape();
+}
+
+
+//@@@@@@@@@@@@@@@@@@@@@@@@  PART 3 - evolution
+var allTopPoints = [];
+var allAllPoints = [];
+var allAllPointsCoor = [];
+var allEvaluate = [];
+var q;
+
+function generateRandomShapes() {
+	allTopPoints = [];
+	allAllPoints = [];
+	allAllPointsCoor = [];
+	allEvaluate = [];
+	
+	for (q = 0; q < 10; q++) {
+		generateRandomShapeFinal();
+		allTopPoints.push(topPoint);
+		allAllPoints.push(allPoints);
+		allAllPointsCoor.push(allPointsCoor);
+		//console.log(q);
+		
+		allEvaluate.push(evaluateShape());
+
+		var w = [canvas1, canvas2, canvas3, canvas4, canvas5, canvas6, canvas7, canvas8, canvas9, canvas10];
+		drawShape(w[q], topPoint, allPoints);
+		
+		/*
+		console.log("RECTANGLE RANDOM POINTS");
+		console.log("rectangleArray.length="+topPoint.length);
+		console.log(topPoint);
+		
+		console.log("TRIANGLE RANDOM POINTS");
+		console.log("triangleArray.length="+allPoints.length);
+		console.log(allPoints);
+		console.log(allPointsCoor);
+		*/
+		
+		allPoints=[];
+		allPointsCoor=[];
+
+		coordinatesR=[];
+		coordinatesT=[];
+
+		topPoint=[];
+
+		drawRectangle(rx1, ry1);
+	}
+
+	canvas.remove();
+	//d3.select("svg").remove();
+	//console.log("@@@@ALL POINTS MATRIX@@@@");
+	//console.log(allTopPoints);
+	//console.log(allAllPoints);
+	//console.log("@@@@EVALUATION@@@@");
+	//console.log(allEvaluate);
+	
+	getSixBestShapes(allEvaluate);
+	console.log("@@OCENY WYLOSOWANYCH KSZTALTOW POCZATKOWYCH@@");
+	console.log(allEvaluate);
+	console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+	
+	crossFunction();
+	
+}
+
+function drawShape(canvasNumb, rectangleDataMatrix, triangleDataMatrix) {
+	//console.log(rectangleDataMatrix);
+	var rectangle = canvasNumb.selectAll("rect").data(rectangleDataMatrix);
+
+	//update
+	rectangle
+	   	.attr("x", function(d) { return d.xCor })
+		.attr("y", function(d) { return d.yCor })
+	   
+	//enter
+	rectangle.enter().append("rect")
+		.attr("x", function(d) { return d.xCor })
+		.attr("y", function(d) { return d.yCor })
+		.attr("width", dimen)
+		.attr("height", dimen)
+		.attr("fill", "white")
+		.attr("stroke", "black")
+		.style("stroke-width", "2")
+		.attr("class", "rectangle")
+		.style("fill", function(d) { return d.color })
+		//.on("click", function(){d3.select(this).style("fill", "blue")})
+		;
+	
+	//exit
+	rectangle.exit().remove();
+	
+	var triangle = canvasNumb.selectAll("polygon").data(triangleDataMatrix);
+	
+	//update
+	triangle
+	   .attr("points", function(d) { return d.p })
+	   
+	//enter
+	triangle.enter().append("polygon")
+	   .style("fill", "white")
+	   .style("stroke", "black")
+	   .style("stroke-width", "2")
+	   .attr("class", "triangle")
+	   .attr("points", function(d) { return d.p })
+	   .style("fill", function(d) { return d.color })
+	   //.on("click", function(){d3.select(this).style("fill", "yellow")})
+	   ;
+	
+	//exit
+	triangle.exit().remove();
+}
+
+var e;
+var f;
+var sortedEvaluations = [];
+var bestShapesIndexes = [];
+var best6Rect = [];
+var best6Triang = [];
+var best6TriangCoor = [];
+function getSixBestShapes(evaluationMatrix) {
+	sortedEvaluations = [];
+	bestShapesIndexes = [];
+	best6Rect = [];
+	best6Triang = [];
+	best6TriangCoor = [];
+	
+	sortedEvaluations = evaluationMatrix.slice();
+    // sort descending
+    sortedEvaluations.sort(function(a,b) {
+        if (a < b) { return 1; }
+        else if (a == b) { return 0; }
+        else { return -1; }
+    });
+
+    //alert(evaluationMatrix+"/******/"+evaluationMatrix[0]+"/"+evaluationMatrix[1]+"/"+evaluationMatrix[2]);
+	var bestShapesIndexes = [];
+	for (e = 0; e < 6; e++) {
+		bestShapesIndexes.push(evaluationMatrix.indexOf(sortedEvaluations[e]));
+	}
+	//console.log(evaluationMatrix);
+	//console.log(sortedEvaluations);
+	console.log("@@NUMERY 6 NAJLEPSZYCH KSZTALTOW - BRANYCH DO KRZYZOWANIA@@");
+	console.log(bestShapesIndexes);
+	console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+	
+	for (f = 0; f < 6; f++) {
+		best6Rect.push(allTopPoints[bestShapesIndexes[f]]);
+		best6Triang.push(allAllPoints[bestShapesIndexes[f]]);
+		best6TriangCoor.push(allAllPointsCoor[bestShapesIndexes[f]]);
+	}
+	//console.log(best6Rect);
+	//console.log("##@@@@COMPARISON ARRAYS FOR TRIANGLE@@@@");
+	//console.log(best6Triang);
+	//console.log(best6TriangCoor);
+}
+
+var RectsAfterCross = [];
+var TriangAfterCross = [];
+var TriangAfterCrossCoor = [];
+function crossFunction() {
+	var k;
+	RectsAfterCross = [];
+	TriangAfterCross = [];
+	TriangAfterCrossCoor = [];
+	
+	//RectsAfterCrossTest = [];
+	//TriangAfterCrossCoorTest = [];
+	//TriangAfterCrossTest = [];
+	
+	for (k = 0; k < 3; k++) {
+		//console.log(k);
+		RectsAfterCross.push(best6Rect[k].concat(best6Rect[k+3]));
+		RectsAfterCross[k] = _.uniqBy(RectsAfterCross[k], function(elem) { return [elem.xCor, elem.yCor].join(); });
+		
+		TriangAfterCross.push(best6Triang[k].concat(best6Triang[k+3]));
+		TriangAfterCross[k] = _.uniqBy(TriangAfterCross[k], function(elem) { return elem.p; });
+		//	return v.p;
+		//});
+		
+		TriangAfterCrossCoor.push(best6TriangCoor[k].concat(best6TriangCoor[k+3]));
+		//TriangAfterCrossCoorTest = 
+		//TriangAfterCrossCoorTest[k] = _.uniq(TriangAfterCrossCoor[k]);
+
+	}
+	
+	//RectsAfterCrossTest[0] = _.uniqBy(RectsAfterCross[0], function(elem) { return [elem.xCor, elem.yCor].join(); });
+	console.log("##@@@@DUPLICATES TEST before@@@@");
+	console.log(TriangAfterCrossCoor[0]);
+	//console.log(TriangAfterCrossTest[0]);
+	//console.log("##@@@@DUPLICATES TEST@@@@");
+	//console.log(RectsAfterCross);
+	//console.log(TriangAfterCross);
+	//console.log(TriangAfterCrossCoor);
+	
+}
+
+function drawCrossedShapes() {
+	var t;
+	var allCrossedEvalution = [];
+	for (t = 0; t < 3; t++) {
+		var v = [canvas01, canvas02, canvas03];
+		drawShape(v[t], RectsAfterCross[t], TriangAfterCross[t]);
+		
+		allCrossedEvalution.push(evaluateSingleCrossShape(TriangAfterCross[t], TriangAfterCrossCoor[t], RectsAfterCross[t]));	
+	}
+	console.log("@@OCENY KSZTALTOW SKRZYZOWANYCH@@");
+	console.log(allCrossedEvalution);
+	console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+}	
+
+function calcCriteria3ForCross (triangleArraySize, rectangleArraySize, recMatrix, trianMatrix) {
+	var triangleColorNumb = 0;
+	var rectangleColorNumb = 0;
+	var numbOfElements = triangleArraySize + rectangleArraySize;
+	
+	for (var i=0; i < triangleArraySize; i++) {
+		if (trianMatrix[i].color == "red") {
+			triangleColorNumb+=1;
+		}
+	}
+	for (var j=0; j < rectangleArraySize; j++) {
+	if (recMatrix[j].color == "blue") {
+		rectangleColorNumb+=1;
+		}
+	}
+	var allColorNumb = triangleColorNumb +  rectangleColorNumb;
+	var colorPercent = allColorNumb / numbOfElements;
+	/*
+	if (colorPercent >= 75) {
+		return 15;
+	}else if (colorPercent < 75 && colorPercent > 50) {
+		return 10;
+	}else if (colorPercent < 50 && colorPercent > 25) {
+		return 5;
+	}
+	*/
+	criteriaValue = (colorPercent * 10);
+	return criteriaValue;
+}
+
+function evaluateSingleCrossShape(singleShapeTriangles, trianPointsCoor, singleShapeRectangles) {
+	var tArraySize = singleShapeTriangles.length;
+	var rArraySize = singleShapeRectangles.length;
+
+	var criteria1Val = calcCriteria1(tArraySize, rArraySize);
+	var criteria2Val = calcCriteria2(tArraySize, rArraySize);
+	var criteria3Val = calcCriteria3ForCross(tArraySize, rArraySize, singleShapeRectangles, singleShapeTriangles);
+	var symmetryValR = checkSymmetryR(singleShapeRectangles);
+	var symmetryValT = checkSymmetryT(trianPointsCoor);
+	
+	var evaluationCrossRating = 0;
+	
+	if (symmetryValR) {
+		evaluationCrossRating += 20;
+	}
+	
+	if (symmetryValT) {
+		evaluationCrossRating += 20;
+	}
+	
+	//var temp = numbOfElements % 5;
+	evaluationCrossRating += 2*(criteria1Val + criteria2Val + criteria3Val);
+	//document.getElementById("evaluation").innerHTML = "EVALUATION = "+evaluationRating + " || criteria1=" + criteria1Val + " || criteria2=" + criteria2Val + " || criteria3=" + criteria3Val + " || symmetryRect=" + symmetryValR + " || symmetryTrian=" + symmetryValT;
+
+	return evaluationCrossRating;
+}
+
+
+var best7Rect = [];
+var best7Triang = [];
+var best7TriangCoor = [];
+function getSevenBestShapes(evaluationMatrix) {
+	var e;
+	var f;
+	var sortedEvaluations = [];
+	var bestShapesIndexes = [];
+	best7Rect = [];
+	best7Triang = [];
+	best7TriangCoor = [];
+	
+	sortedEvaluations = evaluationMatrix.slice();
+    // sort descending
+    sortedEvaluations.sort(function(a,b) {
+        if (a < b) { return 1; }
+        else if (a == b) { return 0; }
+        else { return -1; }
+    });
+
+    //alert(evaluationMatrix+"/******/"+evaluationMatrix[0]+"/"+evaluationMatrix[1]+"/"+evaluationMatrix[2]);
+	var bestShapesIndexes = [];
+	for (e = 0; e < 7; e++) {
+		bestShapesIndexes.push(evaluationMatrix.indexOf(sortedEvaluations[e]));
+	}
+	
+	//console.log("##@@@@GET SEVEN - COMPARISON ARRAYS FOR TRIANGLE@@@@");
+	//console.log(evaluationMatrix);
+	//console.log(sortedEvaluations);
+	//console.log(bestShapesIndexes);
+	
+	for (f = 0; f < 7; f++) {
+		best7Rect.push(allTopPoints[bestShapesIndexes[f]]);
+		best7Triang.push(allAllPoints[bestShapesIndexes[f]]);
+		best7TriangCoor.push(allAllPointsCoor[bestShapesIndexes[f]]);
+	}
+	//console.log(best7Rect);
+	//console.log("##@@@@GET SEVEN - COMPARISON ARRAYS FOR TRIANGLE@@@@");
+	//console.log(best7Triang);
+	//console.log(best7TriangCoor);
+}
+	
+function crossPlus7Parents() {
+	getSevenBestShapes(allEvaluate);
+	allTopPoints = [];
+	allAllPoints = [];
+	allAllPointsCoor = [];
+	allEvaluate = [];
+	
+	allTopPoints = best7Rect.concat(RectsAfterCross);
+	allAllPoints = best7Triang.concat(TriangAfterCross);
+	allAllPointsCoor = best7TriangCoor.concat(TriangAfterCrossCoor);
+	
+	console.log("@@OCENY WSZYSTKICH KSZTALTOW W KOLEJNEJ ITERACJI@@");
+	console.log(allEvaluate);
+	//console.log(allAllPoints);
+	//console.log(best7TriangCoor);
+	
+	for (q = 0; q < 10; q++) {
+		allEvaluate.push(evaluateSingleCrossShape(allAllPoints[q], allAllPointsCoor[q], allTopPoints[q]));
+		
+		var w = [canvas1, canvas2, canvas3, canvas4, canvas5, canvas6, canvas7, canvas8, canvas9, canvas10];
+		drawShape(w[q], allTopPoints[q], allAllPoints[q]);
+		
+	}
+	getSixBestShapes(allEvaluate);
+	canvas.remove();
+	
+	crossFunction();
+}
+
+</script>
+
+</body>
+</html>
+
